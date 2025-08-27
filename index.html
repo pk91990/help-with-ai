@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Dost Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #ece5dd;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 { margin: 10px; }
+
+    #chatBox {
+      width: 90%;
+      max-width: 500px;
+      height: 70vh;
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      overflow-y: auto;
+      box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+    }
+
+    .msg {
+      max-width: 70%;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 5px 0;
+      display: inline-block;
+      clear: both;
+      word-wrap: break-word;
+    }
+
+    .user {
+      background: #dcf8c6;
+      float: right;
+      text-align: right;
+    }
+
+    .ai {
+      background: #f1f0f0;
+      float: left;
+      text-align: left;
+    }
+
+    #chatForm {
+      width: 90%;
+      max-width: 500px;
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    #text {
+      flex: 1;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 8px 15px;
+      border: none;
+      background: #25d366;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>help with ai Dost 🤝</h1>
+  
+  <div id="chatBox"></div>
+
+  <form id="chatForm">
+    <input type="text" id="text" placeholder="Type a message..." required>
+    <input type="file" id="image" accept="image/*">
+    <button type="submit">Send</button>
+    <button id="voiceBtn">🎤</button>
+  </form>
+
+  <script type="module">
+    // Import the Google Generative AI library
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+    let history = JSON.parse(localStorage.getItem("chatHistory")) || [];
+    history.forEach(reply => addMessage(reply.text, reply.sender));
+
+
+
+    // Voice input setup
+    const voiceBtn = document.getElementById("voiceBtn");
+  const textInput = document.getElementById("text");
+
+
+
+  // SpeechRecognition setup
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+
+  recognition.continuous = false;
+  recognition.lang = "en-US"; // Hindi ke liye "hi-IN"
+  recognition.interimResults = false;
+
+  voiceBtn.addEventListener("click", () => {
+    recognition.start();
+  });
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    textInput.value = transcript; // text box me speech daal do
+  };
+
+  recognition.onerror = (event) => {
+    console.error("Speech error:", event.error);
+  };
+
+
+  // generative AI setup
+    const genAI = new GoogleGenerativeAI("AIzaSyBjXUmiBNerMVMp8VJAtCHlZphKlXyA8lU"); // ⚠️ Replace with your API key
+    const chatBox = document.getElementById("chatBox");
+    const form = document.getElementById("chatForm");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userInput = document.getElementById("text").value;
+      const fileInput = document.getElementById("image").files[0];
+
+      // Show user msg
+      addMessage(userInput, "user");
+
+      try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        let parts = [{ text: userInput }];
+        if (fileInput) {
+          const base64Data = await toBase64(fileInput);
+          parts.push({
+            inlineData: {
+              data: base64Data.split(",")[1],
+              mimeType: fileInput.type
+            }
+          });
+          addMessage("[📷 Image Uploaded]", "user");
+        }
+
+        const result = await model.generateContent({ contents: [{ role: "user", parts }] });
+        const reply = await result.response.text();
+
+        addMessage(reply, "ai");
+      } catch (err) {
+        console.error(err);
+        addMessage("❌ Error: " + err.message, "ai");
+      }
+
+      form.reset();
+    });
+
+    // helper functions
+    function addMessage(text, sender) {
+      const div = document.createElement("div");
+      div.className = "msg " + sender;
+      div.innerText = text;
+      div.onclick = () => speak(text);
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+      });
+    }
+    function speak(text) {
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.lang = "en-US"; // Hindi ke liye "hi-IN"
+  window.speechSynthesis.speak(speech);
+}
+
+    // Load previous chat history
+  </script>
+</body>
+</html>
